@@ -1,46 +1,87 @@
 import pandas as pd
 import joblib
 
-from sklearn.datasets import fetch_openml
+from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report
 
 print("=" * 60)
-print("Loading Titanic Dataset...")
+print("Titanic Survival Prediction - Model Training")
 print("=" * 60)
 
-# Load dataset
-titanic = fetch_openml(name="titanic", version=1, as_frame=True)
+# -------------------------------------------------------------------
+# Load Dataset
+# -------------------------------------------------------------------
+df = pd.read_csv("data/titanic.csv")
 
-df = titanic.frame
+print("\nDataset Loaded Successfully!")
+print("-" * 60)
 
-print("\nFirst 5 Rows:")
+print("\nFirst 5 Records:")
 print(df.head())
 
 print("\nDataset Shape:")
 print(df.shape)
 
-# Features and target
-X = df.drop("survived", axis=1)
-y = df["survived"].astype(int)
+print("\nColumn Names:")
+print(df.columns.tolist())
 
-# Columns
-numeric_features = ["age", "fare", "sibsp", "parch"]
-categorical_features = ["pclass", "sex", "embarked"]
+print("\nDataset Information:")
+print(df.info())
 
-# Numeric pipeline
+print("\nMissing Values:")
+print(df.isnull().sum())
+
+print("\nTarget Distribution:")
+print(df["Survived"].value_counts())
+
+# -------------------------------------------------------------------
+# Feature Selection
+# -------------------------------------------------------------------
+features = [
+    "Pclass",
+    "Sex",
+    "Age",
+    "SibSp",
+    "Parch",
+    "Fare",
+    "Embarked"
+]
+
+target = "Survived"
+
+X = df[features]
+y = df[target]
+
+# -------------------------------------------------------------------
+# Numerical & Categorical Columns
+# -------------------------------------------------------------------
+numeric_features = [
+    "Age",
+    "Fare",
+    "SibSp",
+    "Parch"
+]
+
+categorical_features = [
+    "Pclass",
+    "Sex",
+    "Embarked"
+]
+
+# -------------------------------------------------------------------
+# Preprocessing Pipelines
+# -------------------------------------------------------------------
 numeric_transformer = Pipeline(
     steps=[
         ("imputer", SimpleImputer(strategy="median"))
     ]
 )
 
-# Categorical pipeline
 categorical_transformer = Pipeline(
     steps=[
         ("imputer", SimpleImputer(strategy="most_frequent")),
@@ -48,7 +89,6 @@ categorical_transformer = Pipeline(
     ]
 )
 
-# Preprocessor
 preprocessor = ColumnTransformer(
     transformers=[
         ("num", numeric_transformer, numeric_features),
@@ -56,33 +96,63 @@ preprocessor = ColumnTransformer(
     ]
 )
 
-# Model pipeline
+# -------------------------------------------------------------------
+# Build Pipeline
+# -------------------------------------------------------------------
 model = Pipeline(
     steps=[
         ("preprocessor", preprocessor),
-        ("classifier", RandomForestClassifier(random_state=42))
+        ("classifier", RandomForestClassifier(
+            n_estimators=100,
+            random_state=42
+        ))
     ]
 )
 
-# Train/Test split
+# -------------------------------------------------------------------
+# Train/Test Split
+# -------------------------------------------------------------------
 X_train, X_test, y_train, y_test = train_test_split(
-    X[numeric_features + categorical_features],
+    X,
     y,
-    test_size=0.2,
-    random_state=42
+    test_size=0.20,
+    random_state=42,
+    stratify=y
 )
 
-print("\nTraining Model...")
+print("\nTraining Samples :", len(X_train))
+print("Testing Samples  :", len(X_test))
+
+# -------------------------------------------------------------------
+# Train Model
+# -------------------------------------------------------------------
+print("\nTraining Random Forest Model...")
 
 model.fit(X_train, y_train)
 
+print("Training Completed Successfully!")
+
+# -------------------------------------------------------------------
+# Prediction
+# -------------------------------------------------------------------
 predictions = model.predict(X_test)
 
 accuracy = accuracy_score(y_test, predictions)
 
-print(f"\nModel Accuracy: {accuracy:.4f}")
+print("\nModel Accuracy:")
+print(f"{accuracy:.4f}")
 
-# Save model
+print("\nClassification Report:")
+print(classification_report(y_test, predictions))
+
+# -------------------------------------------------------------------
+# Save Model
+# -------------------------------------------------------------------
 joblib.dump(model, "model/titanic_model.pkl")
 
 print("\nModel saved successfully!")
+print("Location: model/titanic_model.pkl")
+
+print("\n" + "=" * 60)
+print("Training Completed Successfully!")
+print("=" * 60)
